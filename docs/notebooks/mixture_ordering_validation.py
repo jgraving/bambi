@@ -34,9 +34,7 @@ def mixture_logp(mu, kappa, weights, grid):
     return logsumexp(np.log(weights[..., None, :]) + component, axis=-1)
 
 
-def evaluate(
-    n, boundary, draws, tune, observations, method="argsort", balanced_branch_init=False
-):
+def evaluate(n, boundary, draws, tune, observations, method="argsort", balanced_branch_init=False):
     """Fit a simulation and compare argsort with truth-matched identities."""
     seed = 1900 + n
     rng = np.random.default_rng(seed)
@@ -56,9 +54,7 @@ def evaluate(
         if boundary and balanced_branch_init and chain % 2:
             initial_means[-1] = -np.pi + 0.02
         permutation = (
-            np.argsort(initial_means)
-            if method == "ordered"
-            else np.roll(np.arange(n), chain % n)
+            np.argsort(initial_means) if method == "ordered" else np.roll(np.arange(n), chain % n)
         )
         initial.append(
             {
@@ -84,9 +80,7 @@ def evaluate(
         mu = pm.VonMises("mu", mu=0, kappa=1e-6, dims="component", **options)
         kappa = pm.LogNormal("kappa", mu=np.log(12), sigma=0.7, dims="component")
         w = pm.Dirichlet("weights", a=np.ones(n), dims="component")
-        pm.Mixture(
-            "y", w=w, comp_dists=pm.VonMises.dist(mu=mu, kappa=kappa), observed=y
-        )
+        pm.Mixture("y", w=w, comp_dists=pm.VonMises.dist(mu=mu, kappa=kappa), observed=y)
         started = perf_counter()
         idata = pm.sample(
             draws=draws,
@@ -106,9 +100,7 @@ def evaluate(
         assert np.all(np.diff(raw["mu"], axis=-1) > 0)
         assert np.all(np.abs(raw["mu"]) < np.pi)
     order = np.argsort(raw["mu"], axis=-1)
-    ordered = {
-        name: np.take_along_axis(value, order, axis=-1) for name, value in raw.items()
-    }
+    ordered = {name: np.take_along_axis(value, order, axis=-1) for name, value in raw.items()}
     truth_order = np.argsort(means)
     matched = {name: np.empty_like(value) for name, value in raw.items()}
     disagree = []
@@ -121,9 +113,7 @@ def evaluate(
                 matched[name][chain, draw] = raw[name][chain, draw, permutation]
             labels_by_raw_index = np.empty(n, dtype=int)
             labels_by_raw_index[rows] = columns
-            disagree.append(
-                np.any(labels_by_raw_index[order[chain, draw]] != truth_order)
-            )
+            disagree.append(np.any(labels_by_raw_index[order[chain, draw]] != truth_order))
     oracle_errors = wrap(matched["mu"] - means)
     ordered_errors = wrap(ordered["mu"] - means[truth_order])
     raw_diagnostics = np.concatenate(list(raw.values()), axis=-1)
@@ -155,9 +145,7 @@ def evaluate(
         "weight_rmse_sorted": float(
             np.sqrt(np.mean((ordered["weights"] - weights[truth_order]) ** 2))
         ),
-        "weight_rmse_truth_matched": float(
-            np.sqrt(np.mean((matched["weights"] - weights) ** 2))
-        ),
+        "weight_rmse_truth_matched": float(np.sqrt(np.mean((matched["weights"] - weights) ** 2))),
         "max_rhat_raw": float(np.max(azs.rhat(raw_diagnostics))),
         "max_rhat_sorted": float(np.max(azs.rhat(ordered_diagnostics))),
         "max_rhat_truth_matched": float(np.max(azs.rhat(matched_diagnostics))),
@@ -181,9 +169,7 @@ def main():
     for n in (2, 3, 4):
         for boundary in (False, True):
             print(f"Starting K={n}, near branch cut={boundary}", flush=True)
-            results.append(
-                evaluate(n, boundary, args.draws, args.tune, args.observations)
-            )
+            results.append(evaluate(n, boundary, args.draws, args.tune, args.observations))
             (args.output / "mixture_ordering_results.json").write_text(
                 json.dumps(results, indent=2) + "\n"
             )

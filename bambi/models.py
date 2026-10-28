@@ -192,7 +192,9 @@ class Model:
         # Create family. Sets `family` attribute.
         self._set_family(family, link)
 
-        from bambi.families.mixture import prepare_mixture_formula  # pylint: disable=import-outside-toplevel
+        from bambi.families.mixture import (  # pylint: disable=import-outside-toplevel
+            prepare_mixture_formula,
+        )
 
         self.family, self.formula = prepare_mixture_formula(self.family, self.formula)
 
