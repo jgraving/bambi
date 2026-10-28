@@ -1,6 +1,12 @@
 from sys import float_info
 
+import numpy as np
 import pytensor.tensor as pt
+
+
+def circular_modulo(x):
+    """Wrap an angular predictor in radians to ``[-pi, pi)``."""
+    return (x + np.pi) % (2 * np.pi) - np.pi
 
 
 def probit(x):

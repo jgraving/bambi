@@ -218,7 +218,7 @@ class StudentT(Family):
 
 class VonMises(Family):
     PARAMETERS = {
-        "mu": ParamSpec(links=["identity"]),
+        "mu": ParamSpec(links=["identity", "circular_modulo"]),
         "kappa": ParamSpec(links=["log"]),
     }
 
