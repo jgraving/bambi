@@ -171,8 +171,12 @@ def coords_for_cutpoints(parameter_label, response_levels):
     return {f"{parameter_label}_dim": cutpoint_levels}
 
 
-def coords_for_coefficients(param_spec, model):
+def coords_for_coefficients(param_spec, model):  # pylint: disable=too-many-return-statements
     """Return response coordinates shared by a parameter's coefficient terms."""
+    if param_spec.coefs_dim == "mixture":
+        return {"__component__": model.coords["__component__"]}
+    if param_spec.coefs_dim == "mixture_reduced":
+        return {"__component_reduced__": model.coords["__component_reduced__"]}
     if param_spec.coefs_dim == "response":
         return model.__bambi_attrs__["response_coords"]
     if param_spec.coefs_dim == "response_reduced":

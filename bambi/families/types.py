@@ -10,6 +10,8 @@ class ResponseType(StrEnum):
 
 
 class DimType(StrEnum):
+    MIXTURE = "mixture"
+    MIXTURE_REDUCED = "mixture_reduced"
     RESPONSE = "response"
     RESPONSE_REDUCED = "response_reduced"
     RESPONSE_CUTPOINTS = "response_cutpoints"

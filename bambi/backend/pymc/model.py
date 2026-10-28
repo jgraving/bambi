@@ -17,6 +17,7 @@ from xarray import DataTree
 
 from bambi.backend.pymc.coords import coords_from_response
 from bambi.backend.pymc.nonlinear import build_new_nonlinear_data
+from bambi.backend.pymc.mixture import build_ordered_views, make_mixture_distribution
 from bambi.backend.pymc.parameters import (
     build_conditional_parameter,
     build_marginal_parameter,
@@ -41,6 +42,7 @@ from bambi.backend.pymc.terms.response import (
     replace_response_variables,
 )
 from bambi.config import config as bmb_config
+from bambi.families.mixture import Mixture
 from bambi.parameters import Conditional, Marginal
 from bambi.utils import as_dataset, prepare_new_data
 
@@ -120,6 +122,14 @@ class PyMCModel:
         }
 
         parameter_values = {}
+        if isinstance(self.spec.family, Mixture):
+            model.add_coords(
+                {
+                    "__component__": range(1, self.spec.family.n + 1),
+                    "__component_reduced__": range(2, self.spec.family.n + 1),
+                }
+            )
+            self.spec.family.likelihood.dist = make_mixture_distribution(self.spec.family)
         self._conditional_info = {}
         self._group_specific_state = GroupSpecificGraphState()
         quantities = self.spec.parameter_graph.nodes
@@ -141,6 +151,24 @@ class PyMCModel:
                     self.spec.data,
                 )
             parameter_values[name] = value
+
+        if isinstance(self.spec.family, Mixture):
+            term = self.spec.response_term
+            if any(
+                (
+                    term.is_censored,
+                    term.is_truncated,
+                    term.is_constrained,
+                    term.is_weighted,
+                    term.is_competing_risks,
+                    term.is_counts,
+                    term.is_binomial,
+                )
+            ):
+                raise NotImplementedError(
+                    "Mixtures currently support ordinary scalar responses only."
+                )
+            parameter_values = build_ordered_views(self.spec.family, parameter_values, model)
 
         build_response_term(
             term=self.spec.response_term,
@@ -318,6 +346,10 @@ class PyMCModel:
                 del idata[group]
 
         parameters_names = [param.label for param in self.spec.conditional_parameters.values()]
+        if isinstance(self.spec.family, Mixture) and self.spec.family.order_by is not None:
+            parameters_names += [
+                name + "_ordered" for name in parameters_names if name + "_ordered" in self.model
+            ]
         responses_names = get_response_prediction_names(self.spec.response_term, kind)
 
         # If group-specific offsets are discarded, we add them back.
