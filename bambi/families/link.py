@@ -28,7 +28,7 @@ def identity(x):
     return x
 
 
-def circular_modulo(x):
+def wrap(x):
     """Wrap angles in radians to ``[-pi, pi)``.
 
     This many-to-one map is used in both link directions by convention; it is
@@ -108,7 +108,6 @@ class LinksContainer(NamedTuple):
 
 
 LINKS = {
-    "circular_modulo": LinksContainer(circular_modulo, circular_modulo),
     "cloglog": LinksContainer(cloglog, invcloglog),
     "identity": LinksContainer(identity, identity),
     "inverse_squared": LinksContainer(inverse_squared, inv_inverse_squared),
@@ -117,6 +116,7 @@ LINKS = {
     "logit": LinksContainer(logit, expit),
     "probit": LinksContainer(probit, invprobit),
     "softmax": LinksContainer(link_not_implemented, softmax),
+    "wrap": LinksContainer(wrap, wrap),
 }
 
 

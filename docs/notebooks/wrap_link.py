@@ -1,7 +1,7 @@
 """Circular regression with an explicitly wrapped mean direction.
 
-Run from the repository with ``python docs/notebooks/circular_modulo.py``.
-Angles and coefficients are in radians. The circular_modulo link maps the
+Run from the repository with ``python docs/notebooks/wrap_link.py``.
+Angles and coefficients are in radians. The wrap link maps the
 predictor to [-pi, pi); identity remains the default for vonmises.
 
 Wrapping is many-to-one and discontinuous at odd multiples of pi. It does
@@ -25,7 +25,7 @@ def main():
         "angle ~ x",
         data,
         family="vonmises",
-        link="circular_modulo",
+        link="wrap",
         priors={
             "Intercept": bmb.Prior("Normal", mu=1, sigma=0.5),
             "x": bmb.Prior("Normal", mu=2, sigma=0.5),

@@ -9,30 +9,30 @@ import pytest
 import xarray as xr
 
 import bambi as bmb
-from bambi.backend.pymc.links import circular_modulo
+from bambi.backend.pymc.links import wrap
 
 
 @pytest.mark.parametrize("shape", [(), (7,), (1, 7)])
-def test_circular_modulo_values(shape):
+def test_wrap_values(shape):
     values = np.array([-3 * np.pi, -np.pi, -0.3, 0, 0.3, np.pi, 3 * np.pi])
     expected = np.array([-np.pi, -np.pi, -0.3, 0, 0.3, -np.pi, -np.pi])
     if not shape:
         values, expected = values[0], expected[0]
     else:
         values, expected = values.reshape(shape), expected.reshape(shape)
-    link = bmb.Link("circular_modulo")
+    link = bmb.Link("wrap")
     for result in (
         link.link(values),
         link.inverse_link(values),
-        circular_modulo(pt.as_tensor(values)).eval(),
+        wrap(pt.as_tensor(values)).eval(),
     ):
         np.testing.assert_allclose(result, expected, atol=1e-14)
         assert np.shape(result) == shape
 
 
-def test_circular_modulo_periodicity_and_likelihood_gradient():
+def test_wrap_periodicity_and_likelihood_gradient():
     eta = pt.dvector("eta")
-    wrapped = circular_modulo(eta)
+    wrapped = wrap(eta)
     logp = pm.logp(pm.VonMises.dist(mu=wrapped, kappa=2), 0.4)
     evaluate = pytensor.function([eta], [wrapped, logp, pt.grad(logp.sum(), eta)])
     # Include points on both sides of the branch cut, but not the discontinuity itself.
@@ -44,8 +44,8 @@ def test_circular_modulo_periodicity_and_likelihood_gradient():
         np.testing.assert_allclose(evaluate(values + turns * 2 * np.pi)[0], angles, atol=1e-12)
 
 
-@pytest.mark.parametrize("link", ["circular_modulo", {"mu": "circular_modulo", "kappa": "log"}])
-def test_circular_modulo_prediction(link):
+@pytest.mark.parametrize("link", ["wrap", {"mu": "wrap", "kappa": "log"}])
+def test_wrap_prediction(link):
     data = pd.DataFrame({"y": [0.2, -0.4, 0.5], "x": [-8.0, 0.0, 8.0]})
     model = bmb.Model("y ~ 0 + x", data, family="vonmises", link=link, priors={"kappa": 2})
     model.build()
@@ -67,8 +67,8 @@ def test_circular_link_scope_and_default():
     data = pd.DataFrame({"y": [0.2, -0.4]})
     assert bmb.Model("y ~ 1", data, family="vonmises").family.link["mu"].name == "identity"
     for family, link in (
-        ("gaussian", "circular_modulo"),
-        ("vonmises", {"kappa": "circular_modulo"}),
+        ("gaussian", "wrap"),
+        ("vonmises", {"kappa": "wrap"}),
     ):
         with pytest.raises(ValueError, match="cannot be used"):
             bmb.Model("y ~ 1", data, family=family, link=link)

@@ -10,12 +10,12 @@ from pymc.distributions.shape_utils import _change_dist_size, rv_size_is_none
 from pytensor.tensor.special import softmax
 
 from bambi.backend.pymc.links import (
-    circular_modulo,
     cloglog,
     identity,
     inverse_squared,
     logit,
     probit,
+    wrap,
 )
 
 
@@ -401,7 +401,6 @@ MAPPING = {
 }
 
 INVERSE_LINKS = {
-    "circular_modulo": circular_modulo,
     "cloglog": cloglog,
     "identity": identity,
     "inverse_squared": inverse_squared,
@@ -410,6 +409,7 @@ INVERSE_LINKS = {
     "logit": logit,
     "probit": probit,
     "softmax": functools.partial(softmax, axis=-1),
+    "wrap": wrap,
 }
 
 
