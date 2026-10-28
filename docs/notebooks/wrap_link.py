@@ -4,11 +4,14 @@ Run from the repository with ``python docs/notebooks/wrap_link.py``.
 Angles and coefficients are in radians. The wrap link maps the
 predictor to [-pi, pi); identity remains the default for vonmises.
 
-Wrapping is many-to-one and discontinuous at odd multiples of pi. It does
-not identify coefficients modulo a full turn, solve mixture label switching,
-or guarantee better sampling. Use informative, scientifically meaningful
-priors and inspect diagnostics using circular summaries where appropriate.
-The von Mises density is already periodic in its mean direction.
+Wrapping puts equivalent directions in a common interval, which makes
+directional traces and diagnostics comparable when chains differ by full
+turns. The von Mises density is already periodic in its mean direction;
+with identical coefficient priors the likelihood and posterior are unchanged.
+Near the interval boundary, use circular summaries and inspect sin(mu) and
+cos(mu), or angular deviations about a common reference direction. Regression
+coefficients remain on their original scale. See docs/validation/wrap/README.md
+for paired sampling experiments and the distinction between directions and slopes.
 """
 
 import numpy as np
