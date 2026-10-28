@@ -176,7 +176,7 @@ def test_non_normal_prior_with_noncentered_true_raises(data_random_n100):
     )
     with pytest.raises(
         NotImplementedError,
-        match=r"non-centered parametrization is only supported for Normal priors, got StudentT",
+        match=r"No non-centered parametrization is registered for StudentT",
     ):
         model.build()
 

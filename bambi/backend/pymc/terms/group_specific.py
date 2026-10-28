@@ -4,6 +4,7 @@ import pytensor.tensor as pt
 
 from bambi.backend.pymc.coords import coords_for_coefficients
 from bambi.backend.pymc.data import predictor_data_name, shape_common_data
+from bambi.backend.pymc.noncentered import make_noncentered
 from bambi.backend.pymc.terms.common import shape_prior_arg
 from bambi.backend.pymc.terms.info import GroupSpecificTermInfo
 from bambi.backend.pymc.types import Dims
@@ -157,23 +158,11 @@ def build_distribution(
             kwargs[name] = shape_prior_arg(value, shape)
 
     effective_noncentered = prior.noncentered if prior.noncentered is not None else noncentered
+    dist = get_distribution_from_prior(prior)
 
     if effective_noncentered and any(isinstance(v, pt.TensorVariable) for v in kwargs.values()):
         # non-centered is only relevant when distribution arguments are random variables.
-        if prior.name == "Normal" and isinstance(kwargs.get("sigma", None), pt.TensorVariable):
-            sigma = kwargs["sigma"]
-            with model:
-                offset = pm.Normal(label + "_offset", mu=0, sigma=1, dims=dims)
-                model.__bambi_attrs__["offset_names"].add(label + "_offset")
-                rv = pm.Deterministic(label, offset * sigma, dims=dims)
-            return rv
-
-        raise NotImplementedError(
-            "The non-centered parametrization is only supported for Normal priors, "
-            f"got {prior.name}."
-        )
-
-    dist = get_distribution_from_prior(prior)
+        return make_noncentered(dist, label, dims, model, **kwargs)
 
     with model:
         rv = dist(label, **kwargs, dims=dims)
