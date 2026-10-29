@@ -1,5 +1,17 @@
 """Register an external non-centered Student-t group-effect builder.
 
+Quick summary
+-------------
+What this checks: register a Student-t builder and its inverse, then build a
+model with Student-t group effects. This checks that an external extension
+works through Bambi's prior interface; it does not sample or compare mixing.
+
+How to use it: adapt the builder and inverse together for your distribution.
+Keep angular VonMises effects centered with ``noncentered=False``.
+Run with ``python docs/notebooks/noncentered_dispatch.py``.
+
+Implementation details
+----------------------
 The built-in registry supports Normal priors with a sigma hyperprior.
 Use a per-prior ``noncentered=False`` override for centered effects, such as
 VonMises angular offsets whose inferred concentration remains in their prior.
@@ -20,7 +32,6 @@ levels draw from the original distribution's ``.dist`` method conditional on
 the fitted hyperparameters, so a custom prior callable must provide that
 method to support unseen groups.
 
-Run with ``python docs/notebooks/noncentered_dispatch.py``.
 """
 
 import numpy as np
