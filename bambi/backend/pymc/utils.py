@@ -15,6 +15,7 @@ from bambi.backend.pymc.links import (
     inverse_squared,
     logit,
     probit,
+    wrap,
 )
 
 
@@ -409,6 +410,7 @@ INVERSE_LINKS = {
     "logit": logit,
     "probit": probit,
     "softmax": functools.partial(softmax, axis=-1),
+    "wrap": wrap,
 }
 
 

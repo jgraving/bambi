@@ -366,7 +366,7 @@ def test_links(data_random_n100):
         "negativebinomial": ["identity", "log", "logexpm1", "cloglog"],
         "ordered_beta": ["logit"],
         "poisson": ["identity", "log", "logexpm1"],
-        "vonmises": ["identity"],
+        "vonmises": ["identity", "wrap"],
         "wald": ["inverse", "inverse_squared", "identity", "log", "logexpm1"],
         "zero_one_inflated_beta": ["logit", "probit", "cloglog"],
     }

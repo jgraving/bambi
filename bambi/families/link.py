@@ -28,6 +28,20 @@ def identity(x):
     return x
 
 
+def wrap(x):
+    """Wrap angles in radians to ``[-pi, pi)``.
+
+    This many-to-one map is used in both link directions by convention; it is
+    not invertible. Both endpoints map to ``-pi``. Angles already inside the
+    interval are preserved exactly, including values very close to zero.
+    """
+    x = np.asarray(x)
+    result = (x + np.pi) % (2 * np.pi) - np.pi
+    # Rounding just below -pi can put the modulo result at the excluded endpoint.
+    result = np.where(result >= np.pi, result - 2 * np.pi, result)
+    return np.where((x >= -np.pi) & (x < np.pi), x, result)
+
+
 def cloglog(mu):
     """Cloglog function that ensures the input is greater than 0."""
     mu = force_greater_than_zero(mu)
@@ -119,6 +133,7 @@ LINKS = {
     "logit": LinksContainer(logit, expit),
     "probit": LinksContainer(probit, invprobit),
     "softmax": LinksContainer(link_not_implemented, softmax),
+    "wrap": LinksContainer(wrap, wrap),
 }
 
 

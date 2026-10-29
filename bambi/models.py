@@ -101,8 +101,10 @@ class Model:
     link : str or dict of str to str, optional
         The name of the link function to use. Valid names are `"cloglog"`, `"identity"`,
         `"inverse_squared"`, `"inverse"`, `"log"`, `"logexpm1"`, `"logit"`, `"probit"`,
-        and `"softmax"`.
+        `"softmax"`, and `"wrap"`.
         Not all the link functions can be used with all the families.
+        The `"wrap"` link maps von Mises mean directions in radians to `[-pi, pi)`;
+        it leaves regression coefficients on their original scale.
         If a dictionary, keys are the names of the target parameters and the values are the names
         of the link functions.
         For nonlinear formulas, each parameter's inverse link is applied once to its complete
@@ -801,8 +803,8 @@ class Model:
             defaults loaded at model initialization.
         link : str or dict of str to str
             The name of the link function to use. Valid names are `"cloglog"`, `"identity"`,
-            `"inverse_squared"`, `"inverse"`, `"log"`, `"logexpm1"`, `"logit"`, `"probit"`, and
-            `"softmax"`. Not all the link functions can be used with all the families.
+            `"inverse_squared"`, `"inverse"`, `"log"`, `"logexpm1"`, `"logit"`, `"probit"`,
+            `"softmax"`, and `"wrap"`. Not all the link functions can be used with all the families.
             If a dictionary, keys are the names of the target parameters and the values are the
             names of the link functions.
         """
