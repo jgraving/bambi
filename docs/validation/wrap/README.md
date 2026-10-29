@@ -17,6 +17,12 @@
 These findings use the original modulo implementation. The later roundoff
 refinement is covered by focused tests, not a repeat of the 24-fit experiment.
 
+![Raw and wrapped directional R-hat, alongside identical sampling work in matched fits](wrap_summary.svg)
+
+R-hat medians and min–max ranges across three seeds use the same draws from
+identity fits (left). Disagreement remains at new predictor values. All 12
+matched fit pairs took identical post-warmup NUTS steps (right).
+
 ## Experiment design
 
 [wrap_validation.py](../../notebooks/wrap_validation.py) runs four Bambi models
@@ -145,6 +151,14 @@ draws provides the same directional benefit; the link makes that convention
 part of model specification and prediction.
 
 ## Reproduce
+
+Redraw the compact summary from saved results without sampling:
+
+```bash
+python docs/notebooks/plot_wrap_summary.py
+```
+
+This needs only NumPy and Matplotlib. Add `--preview path.png` for a PNG copy.
 
 Install the branch and mpmath, then run from the repository root:
 
