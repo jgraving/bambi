@@ -60,8 +60,9 @@ def test_mixture_likelihood_and_prediction(
 
 
 @pytest.mark.parametrize("sparse", [False, True])
+@pytest.mark.parametrize("n", [2, 3])
 def test_hierarchical_ordering_keeps_component_parameters_together(
-    circular_data, mock_pymc_sample, monkeypatch, sparse
+    circular_data, mock_pymc_sample, monkeypatch, sparse, n
 ):
     monkeypatch.setattr(bmb.config, "SPARSE_DOT", sparse)
     circular = bmb.Prior(
@@ -75,7 +76,7 @@ def test_hierarchical_ordering_keeps_component_parameters_together(
             "weights ~ 1 + (1|animal)",
         ),
         circular_data,
-        family=bmb.MixtureVonMises(2, order_by="Intercept"),
+        family=bmb.MixtureVonMises(n, order_by="Intercept"),
         priors={"1|animal": circular},
     )
     idata = model.fit(draws=10, chains=1, random_seed=41)
@@ -95,17 +96,71 @@ def test_hierarchical_ordering_keeps_component_parameters_together(
         "weights",
     ):
         raw = draws[name].values
-        indices = order.reshape((*order.shape[:2], *((1,) * (raw.ndim - 3)), 2))
+        indices = order.reshape((*order.shape[:2], *((1,) * (raw.ndim - 3)), n))
         expected = np.take_along_axis(raw, np.broadcast_to(indices, raw.shape), axis=-1)
         np.testing.assert_allclose(draws[name + "_ordered"].values, expected)
     # Weight effects are represented as full logits including the fixed reference.
     raw = draws["weights_1|animal"].values
-    full = np.concatenate([np.zeros_like(raw), raw], axis=-1)
+    full = np.concatenate([np.zeros_like(raw[..., :1]), raw], axis=-1)
     expected = np.take_along_axis(full, np.broadcast_to(order[:, :, None], full.shape), axis=-1)
     np.testing.assert_allclose(draws["weights_1|animal_ordered"].values, expected)
     for data in (circular_data.iloc[:2], circular_data.iloc[:2].assign(animal="new")):
         prediction = model.predict(idata, data=data, inplace=False, random_seed=42)
-        assert prediction.predictions.mu_ordered.shape == (1, 10, 2, 2)
+        assert prediction.predictions.mu_ordered.shape == (1, 10, 2, n)
+        for name in ("mu", "kappa", "weights"):
+            raw = prediction.predictions[name].values
+            indices = np.broadcast_to(order[:, :, None], raw.shape)
+            np.testing.assert_allclose(
+                prediction.predictions[name + "_ordered"],
+                np.take_along_axis(raw, indices, axis=-1),
+            )
+
+
+@pytest.mark.parametrize("aliased", ["mu", "kappa", "weights"])
+@pytest.mark.parametrize("weights_formula", [False, True])
+def test_ordering_aliases_preserve_likelihood_and_predictions(
+    circular_data, mock_pymc_sample, aliased, weights_formula
+):
+    formulas = ["mu ~ x", "kappa ~ x"]
+    if weights_formula:
+        formulas.append("weights ~ x")
+    model = bmb.Model(
+        bmb.Formula("y ~ mixture(mu,kappa)", *formulas),
+        circular_data,
+        family=bmb.MixtureVonMises(3, order_by="direction_intercept"),
+    )
+    aliases = {"mu": {"Intercept": "direction_intercept"}}
+    if aliased == "weights" and not weights_formula:
+        aliases[aliased] = "mixing_probabilities"
+    else:
+        aliases.setdefault(aliased, {})[aliased] = "aliased_parameter"
+    model.set_alias(aliases)
+    idata = model.fit(draws=8, chains=1, random_seed=12)
+    labels = {name: parameter.label for name, parameter in model.parameters.items()}
+    for data in (None, circular_data.iloc[:2]):
+        result = model.predict(idata, data=data, inplace=False)
+        draws = result.posterior if data is None else result.predictions
+        mu, kappa = (draws[labels[name]].values for name in ("mu", "kappa"))
+        weights = (draws if weights_formula else idata.posterior)[labels["weights"]].values
+        if not weights_formula:
+            weights = weights[..., None, :]
+        response = circular_data.y.to_numpy() if data is None else data.y.to_numpy()
+        expected = pm.logp(
+            pm.Mixture.dist(w=weights, comp_dists=pm.VonMises.dist(mu=mu, kappa=kappa)),
+            response,
+        ).eval()
+        actual = model.compute_log_likelihood(
+            idata, data=data, inplace=False
+        ).log_likelihood.y.values
+        np.testing.assert_allclose(actual, expected)
+        order = idata.posterior.component_order.values[:, :, None]
+        for name in ("mu", "kappa"):
+            label = labels[name]
+            raw = draws[label].values
+            np.testing.assert_allclose(
+                draws[label + "_ordered"],
+                np.take_along_axis(raw, np.broadcast_to(order, raw.shape), axis=-1),
+            )
 
 
 def test_ordering_branch_cut_and_density_invariance(circular_data):
@@ -144,6 +199,48 @@ def test_ordering_branch_cut_and_density_invariance(circular_data):
     np.testing.assert_array_equal(orders, [[1, 0], [0, 1]])
 
 
+@pytest.mark.parametrize(
+    "parameter,coefficient",
+    [("mu", "Intercept"), ("mu", "Intercept_centered"), ("mu", "x"), ("kappa", "Intercept")],
+)
+@pytest.mark.parametrize("alias", [False, True])
+def test_ordering_wraps_only_location_intercepts(circular_data, parameter, coefficient, alias):
+    import pytensor
+
+    centered = coefficient == "Intercept_centered"
+    term = "Intercept" if centered else coefficient
+    name = coefficient if parameter == "mu" else "kappa_" + coefficient
+    if alias:
+        name = "ordering_coefficient" + ("_centered" if centered else "")
+    location_formula = "mu ~ x" if centered else "mu ~ 0 + x" if term == "x" else "mu ~ 1"
+    model = bmb.Model(
+        bmb.Formula("y ~ mixture(mu,kappa)", location_formula, "kappa ~ 1"),
+        circular_data,
+        family=bmb.MixtureVonMises(3, order_by=name),
+    )
+    if alias:
+        model.set_alias({parameter: {term: "ordering_coefficient"}})
+    model.build()
+    backend = model.backend.model
+    evaluate = pytensor.function([backend[name]], backend["component_order"])
+    values = np.array([0.5, 4.0, -1.0])
+    is_direction = parameter == "mu" and term == "Intercept"
+    reference = (values + np.pi) % (2 * np.pi) - np.pi if is_direction else values
+    np.testing.assert_array_equal(evaluate(values), np.argsort(reference))
+
+
+def test_ordering_preserves_tiny_direction_differences(circular_data):
+    import pytensor
+
+    model = bmb.Model(
+        "y ~ mixture(mu)", circular_data, family=bmb.MixtureVonMises(2, order_by="Intercept")
+    )
+    model.build()
+    backend = model.backend.model
+    evaluate = pytensor.function([backend["Intercept"]], backend["component_order"])
+    np.testing.assert_array_equal(evaluate([1e-20, -1e-20]), [1, 0])
+
+
 @pytest.mark.parametrize("component", ["gaussian", "beta"])
 def test_generic_scalar_component_and_parameter_transform(
     circular_data, mock_pymc_sample, component
@@ -155,6 +252,33 @@ def test_generic_scalar_component_and_parameter_transform(
     )
     idata = model.fit(draws=5, chains=1, random_seed=3)
     assert np.isfinite(model.compute_log_likelihood(idata, inplace=False).log_likelihood.y).all()
+
+
+def test_custom_component_response_transform_is_not_silently_skipped(circular_data, monkeypatch):
+    from bambi.backend.pymc.transform import transforms_registry
+
+    class TransformedGaussian(bmb.Family):
+        pass
+
+    component = TransformedGaussian("custom", bmb.Likelihood("Normal"), "identity")
+    component.set_default_priors({"sigma": bmb.Prior("HalfNormal", sigma=1)})
+    monkeypatch.setitem(
+        transforms_registry.data, TransformedGaussian, lambda values: {"observed": 2 * values}
+    )
+    model = bmb.Model("y ~ mixture(mu)", circular_data, family=bmb.Mixture(component, 2))
+    with pytest.raises(NotImplementedError, match="response-data transforms"):
+        model.build()
+
+
+def test_custom_component_requires_dist_constructor(circular_data):
+    def custom_normal(name, mu, sigma, **kwargs):
+        return pm.Normal(name, mu, sigma, **kwargs)
+
+    component = bmb.Family("custom", bmb.Likelihood("Normal", dist=custom_normal), "identity")
+    component.set_default_priors({"sigma": bmb.Prior("HalfNormal", sigma=1)})
+    model = bmb.Model("y ~ mixture(mu)", circular_data, family=bmb.Mixture(component, 2))
+    with pytest.raises(TypeError, match="'.dist' constructor"):
+        model.build()
 
 
 def test_family_configuration_is_model_local(circular_data):

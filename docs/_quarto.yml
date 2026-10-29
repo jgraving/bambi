@@ -131,6 +131,8 @@ quartodoc:
         - Family
         - Likelihood
         - Link
+        - Mixture
+        - MixtureVonMises
     - title: Plots
       desc: ""
       contents:

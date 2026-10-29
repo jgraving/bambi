@@ -19,6 +19,8 @@ class Mixture(Family):
     component : str or Family
         Component family. Its response must be numeric and scalar, and its
         parameters must be scalar before introducing the mixture axis.
+        Custom distributions must provide a PyMC-compatible ``.dist``
+        constructor. Registered response-data transforms are not supported.
     n : int
         Number of components, at least two.
     order_by : str or None, optional
@@ -26,6 +28,7 @@ class Mixture(Family):
         as ``"Intercept"``. Its order defines additional ``*_ordered`` views
         of all component parameters and coefficients, including group effects.
         This is a reporting convention, not an identifying prior.
+        Use the coefficient's alias if one is assigned with ``Model.set_alias``.
 
     Notes
     -----
@@ -92,11 +95,13 @@ class MixtureVonMises(Mixture):
     n : int
         Number of directional components, at least two.
     order_by : str or None, optional
-        Population coefficient used to label components. Directions are
-        wrapped to ``[-pi, pi)`` before computing the order. The same indices
+        Population coefficient used to label components. The ``mu`` intercept
+        is wrapped to ``[-pi, pi)`` before computing the order; slopes and
+        other coefficients retain their numerical order. The same indices
         are applied to every component parameter and group-specific effect.
-        The branch cut remains: these views can jump when a direction crosses
-        the boundary and do not establish circular identifiability.
+        Use the coefficient's alias when one is assigned. The branch cut
+        remains: these views can jump when a direction crosses the boundary
+        and do not establish circular identifiability.
 
     Examples
     --------

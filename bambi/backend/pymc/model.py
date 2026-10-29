@@ -168,7 +168,9 @@ class PyMCModel:
                 raise NotImplementedError(
                     "Mixtures currently support ordinary scalar responses only."
                 )
-            parameter_values = build_ordered_views(self.spec.family, parameter_values, model)
+            parameter_values = build_ordered_views(
+                self.spec.family, parameter_values, model, self.spec.conditional_parameters
+            )
 
         build_response_term(
             term=self.spec.response_term,

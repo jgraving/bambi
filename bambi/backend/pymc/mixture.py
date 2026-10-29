@@ -10,7 +10,13 @@ from bambi.backend.pymc.utils import get_distribution_from_likelihood
 
 def make_mixture_distribution(family):
     """Build a PyMC constructor that marginalizes the component index."""
+    if transforms_registry.get_data_transform(family.component) is not None:
+        raise NotImplementedError(
+            "Mixtures of families with response-data transforms are not supported yet."
+        )
     distribution = get_distribution_from_likelihood(family.component.likelihood)
+    if not callable(getattr(distribution, "dist", None)):
+        raise TypeError("A mixture component distribution must provide a '.dist' constructor.")
     transform = transforms_registry.get_parameter_transform(family.component)
 
     def components(kwargs):
@@ -37,7 +43,7 @@ def make_mixture_distribution(family):
     return MixtureDistribution
 
 
-def build_ordered_views(family, parameters, model):
+def build_ordered_views(family, parameters, model, conditional_parameters):
     """Apply one population-derived permutation to every component axis."""
     if family.order_by is None:
         return parameters
@@ -49,7 +55,17 @@ def build_ordered_views(family, parameters, model):
             "'order_by' must have exactly one value per component and no observation axis."
         )
     if family.component.likelihood.name == "VonMises":
-        reference = (reference + np.pi) % (2 * np.pi) - np.pi
+        location = conditional_parameters.get("mu")
+        if location is not None and location.intercept_term is not None:
+            intercept = location.intercept_term.label
+            if family.order_by in (intercept, intercept + "_centered"):
+                wrapped = (reference + np.pi) % (2 * np.pi) - np.pi
+                wrapped = pt.switch(wrapped >= np.pi, wrapped - 2 * np.pi, wrapped)
+                # Preserve tiny differences within the canonical interval;
+                # adding pi can otherwise round distinct directions to a tie.
+                reference = pt.switch(
+                    (reference >= -np.pi) & (reference < np.pi), reference, wrapped
+                )
     with model:
         order = pm.Deterministic("component_order", pt.argsort(reference), dims="__component__")
         ordered = {}
@@ -67,12 +83,15 @@ def build_ordered_views(family, parameters, model):
             elif "__component__" not in dims:
                 continue
             axis = dims.index("__component__")
-            ordered[variable.name] = pm.Deterministic(
+            ordered[variable] = pm.Deterministic(
                 variable.name + "_ordered", pt.take(value, order, axis=axis), dims=dims
             )
             if variable.name in model.__bambi_attrs__["offset_names"]:
-                model.__bambi_attrs__["offset_names"].add(ordered[variable.name].name)
-        return {name: ordered.get(name, value) for name, value in parameters.items()}
+                model.__bambi_attrs__["offset_names"].add(ordered[variable].name)
+        # Parameter keys retain their formula names, whereas graph variables may
+        # have aliases. Match the variables themselves so a rename cannot cause
+        # only some parameters of a component to be permuted in the likelihood.
+        return {name: ordered.get(value, value) for name, value in parameters.items()}
 
 
 def mixture_weights(predictor, _parameters, inverse_link):
