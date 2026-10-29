@@ -15,6 +15,7 @@ from pymc.model.fgraph import fgraph_from_model, model_from_fgraph
 from pymc.model.transform.conditioning import remove_value_transforms
 from xarray import DataTree
 
+from bambi.backend.pymc.noncentered import recover_offsets
 from bambi.backend.pymc.coords import coords_from_response
 from bambi.backend.pymc.nonlinear import build_new_nonlinear_data
 from bambi.backend.pymc.parameters import (
@@ -323,20 +324,7 @@ class PyMCModel:
         # If group-specific offsets are discarded, we add them back.
         # They are needed for the computation of deterministics (model parameters).
         posterior = as_dataset(idata["posterior"])
-        offset_values = {}
-        for parameter_info in self._conditional_info.values():
-            for term_info in parameter_info.group_specific_terms:
-                term = term_info.term
-                term_label = term.label
-                offset_name = f"{term_label}_offset"
-                if (
-                    offset_name in self.model.__bambi_attrs__["offset_names"]
-                    and offset_name not in posterior
-                ):
-                    sigma_name = term.hyperprior_alias.get("sigma", "sigma")
-                    offset_values[offset_name] = (
-                        posterior[term_label] / posterior[f"{term_label}_{sigma_name}"]
-                    )
+        offset_values = recover_offsets(posterior, self.model)
 
         if data is None:
             self._predict_in_sample(
@@ -382,20 +370,7 @@ class PyMCModel:
 
         posterior = as_dataset(idata["posterior"])
 
-        offset_values = {}
-        for parameter_info in self._conditional_info.values():
-            for term_info in parameter_info.group_specific_terms:
-                term = term_info.term
-                term_label = term.label
-                offset_name = f"{term_label}_offset"
-                if (
-                    offset_name in self.model.__bambi_attrs__["offset_names"]
-                    and offset_name not in posterior
-                ):
-                    sigma_name = term.hyperprior_alias.get("sigma", "sigma")
-                    offset_values[offset_name] = (
-                        posterior[term_label] / posterior[f"{term_label}_{sigma_name}"]
-                    )
+        offset_values = recover_offsets(posterior, self.model)
 
         trace = idata
         if offset_values:
