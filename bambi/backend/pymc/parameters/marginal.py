@@ -19,7 +19,9 @@ def build_marginal_parameter(parameter, family, model: pm.Model):
         family.get_param_spec(parameter.name) if isinstance(parameter, MarginalParameter) else None
     )
     if param_spec is not None and param_spec.ndim > 0:
-        if param_spec.coefs_dim == "response_cutpoints_reduced":
+        if param_spec.coefs_dim == "mixture_reduced":
+            dims = ("__component__",)
+        elif param_spec.coefs_dim == "response_cutpoints_reduced":
             dims = tuple(model.__bambi_attrs__["response_coords_cutpoints"])
         else:
             dims = tuple(coords_for_coefficients(param_spec, model))

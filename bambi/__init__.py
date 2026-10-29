@@ -7,6 +7,7 @@ from bambi import interpret
 from bambi.config import config
 from bambi.data import clear_data_home, load_data
 from bambi.families import Family, Likelihood, Link
+from bambi.families.mixture import Mixture, MixtureVonMises
 from bambi.formula import Formula
 from bambi.models import Model
 from bambi.priors import Prior
@@ -19,6 +20,8 @@ __all__ = [
     "Likelihood",
     "Link",
     "Model",
+    "Mixture",
+    "MixtureVonMises",
     "Prior",
     "clear_data_home",
     "config",

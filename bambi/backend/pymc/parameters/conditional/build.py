@@ -21,6 +21,8 @@ from bambi.backend.pymc.transform import transforms_registry
 from bambi.backend.pymc.utils import INVERSE_LINKS
 from bambi.config import config as bmb_config
 from bambi.families import Family
+from bambi.families.mixture import Mixture
+from bambi.backend.pymc.mixture import mixture_weights
 from bambi.families.types import ParamSpec
 from bambi.parameters import ConditionalParameter
 from bambi.terms import CommonTerm
@@ -74,13 +76,21 @@ def build_conditional_parameter(
         link = family.link[parameter.name]
         inverse_link = INVERSE_LINKS.get(link.name, link.inverse_link)
         transform_predictor = transforms_registry.get_predictor_transform(family, parameter.name)
+        if isinstance(family, Mixture):
+            transform_predictor = (
+                mixture_weights
+                if parameter.name == "weights"
+                else transforms_registry.get_predictor_transform(family.component, parameter.name)
+            )
         if transform_predictor:
             value = transform_predictor(value, parameter_values, inverse_link)
         else:
             value = inverse_link(value)
         dims = ("__obs__",)
 
-        if param_spec.coefs_dim == "response_cutpoints_reduced":
+        if param_spec.coefs_dim in ("mixture", "mixture_reduced"):
+            dims += ("__component__",)
+        elif param_spec.coefs_dim == "response_cutpoints_reduced":
             dims += tuple(model.__bambi_attrs__["response_coords_cutpoints"])
         elif param_spec.coefs_dim is not None and parameter.name != family.likelihood.parent:
             dims += tuple(coords_for_coefficients(param_spec, model))
