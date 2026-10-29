@@ -32,9 +32,14 @@ def wrap(x):
     """Wrap angles in radians to ``[-pi, pi)``.
 
     This many-to-one map is used in both link directions by convention; it is
-    not invertible. Both endpoints map to ``-pi``.
+    not invertible. Both endpoints map to ``-pi``. Angles already inside the
+    interval are preserved exactly, including values very close to zero.
     """
-    return (np.asarray(x) + np.pi) % (2 * np.pi) - np.pi
+    x = np.asarray(x)
+    result = (x + np.pi) % (2 * np.pi) - np.pi
+    # Rounding just below -pi can put the modulo result at the excluded endpoint.
+    result = np.where(result >= np.pi, result - 2 * np.pi, result)
+    return np.where((x >= -np.pi) & (x < np.pi), x, result)
 
 
 def cloglog(mu):
@@ -96,6 +101,17 @@ def inv_inverse(eta):
     return 1 / eta
 
 
+def logexpm1(mu):
+    """Inverse softplus, evaluated without overflow or cancellation."""
+    mu = np.asarray(mu)
+    return mu + np.log(-np.expm1(-mu))
+
+
+def log1pexp(eta):
+    """Softplus, evaluated without overflow."""
+    return np.logaddexp(0, eta)
+
+
 def link_not_implemented(*args, **kwargs):
     raise NotImplementedError("link not implemented")
 
@@ -113,6 +129,7 @@ LINKS = {
     "inverse_squared": LinksContainer(inverse_squared, inv_inverse_squared),
     "inverse": LinksContainer(inverse, inv_inverse),
     "log": LinksContainer(np.log, np.exp),
+    "logexpm1": LinksContainer(logexpm1, log1pexp),
     "logit": LinksContainer(logit, expit),
     "probit": LinksContainer(probit, invprobit),
     "softmax": LinksContainer(link_not_implemented, softmax),

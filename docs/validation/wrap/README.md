@@ -27,6 +27,10 @@ The recorded environment is PyMC 6.3.2, PyTensor 3.3.4, ArviZ Stats 1.3.3,
 NumPy 2.5.4, and the Bambi branch implementing `wrap`. Diagnostics use
 rank-normalized split R-hat and bulk ESS. Full results, per-coordinate diagnostics,
 versions, seeds, and computational measurements are in [results.json](results.json).
+These numerical results record the original modulo implementation. A later
+roundoff correction preserves angles already in the principal interval exactly
+and maps any rounded upper endpoint back to `-pi`. Focused NumPy/PyTensor tests
+cover those changes; the 24-fit study has not been repeated for that correction.
 
 ## Directional diagnostics improve when whole-turn offsets are irrelevant
 

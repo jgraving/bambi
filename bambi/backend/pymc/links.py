@@ -6,7 +6,9 @@ import pytensor.tensor as pt
 
 def wrap(x):
     """Wrap an angular predictor in radians to ``[-pi, pi)``."""
-    return (x + np.pi) % (2 * np.pi) - np.pi
+    result = (x + np.pi) % (2 * np.pi) - np.pi
+    result = pt.switch(pt.ge(result, np.pi), result - 2 * np.pi, result)
+    return pt.switch(pt.and_(pt.ge(x, -np.pi), pt.lt(x, np.pi)), x, result)
 
 
 def probit(x):
