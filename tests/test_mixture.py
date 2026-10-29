@@ -199,6 +199,60 @@ def test_ordering_branch_cut_and_density_invariance(circular_data):
     np.testing.assert_array_equal(orders, [[1, 0], [0, 1]])
 
 
+def test_random_effect_boundary_crossing_keeps_population_component_order(circular_data):
+    import pytensor
+
+    model = bmb.Model(
+        bmb.Formula("y ~ mixture(mu,kappa)", "mu ~ 1 + (1|animal)", "kappa ~ 1", "weights ~ 1"),
+        circular_data,
+        family=bmb.MixtureVonMises(2, order_by="Intercept"),
+        priors={
+            "1|animal": bmb.Prior(
+                "VonMises", mu=0, kappa=bmb.Prior("HalfNormal", sigma=2), noncentered=False
+            )
+        },
+    )
+    model.build()
+    backend = model.backend.model
+    evaluate = pytensor.function(
+        [
+            backend[name]
+            for name in ("Intercept", "1|animal", "kappa_Intercept", "weights_Intercept")
+        ],
+        [
+            backend[name]
+            for name in (
+                "component_order",
+                "mu",
+                "mu_ordered",
+                "1|animal_ordered",
+                "kappa_ordered",
+                "weights_ordered",
+            )
+        ],
+    )
+    effects = np.array([[0.1, 0], [-0.1, 0]])
+    order, raw_mu, ordered_mu, ordered_effects, kappa, weights = evaluate(
+        [3.1, -1.0], effects, [0, np.log(3)], [np.log(2)]
+    )
+    np.testing.assert_array_equal(order, [1, 0])
+    np.testing.assert_allclose(ordered_mu, raw_mu[:, order])
+    np.testing.assert_allclose(ordered_effects, effects[:, order])
+    np.testing.assert_allclose(kappa, np.tile([3, 1], (len(circular_data), 1)))
+    np.testing.assert_allclose(weights, np.tile([2 / 3, 1 / 3], (len(circular_data), 1)))
+    # Animal a crosses the cut, while b does not. Neither gets a separate sort.
+    wrapped = np.angle(np.exp(1j * raw_mu))
+    np.testing.assert_array_equal(np.argsort(wrapped[[0, 2]], axis=-1), [[0, 1], [1, 0]])
+    np.testing.assert_allclose(np.angle(np.exp(1j * ordered_mu)), wrapped[:, order])
+    original = pm.Mixture.dist(
+        w=[1 / 3, 2 / 3], comp_dists=pm.VonMises.dist(mu=raw_mu, kappa=[1, 3])
+    )
+    ordered = pm.Mixture.dist(w=weights, comp_dists=pm.VonMises.dist(mu=ordered_mu, kappa=kappa))
+    np.testing.assert_allclose(
+        pm.logp(original, circular_data.y).eval(), pm.logp(ordered, circular_data.y).eval()
+    )
+
+
 @pytest.mark.parametrize(
     "parameter,coefficient",
     [("mu", "Intercept"), ("mu", "Intercept_centered"), ("mu", "x"), ("kappa", "Intercept")],

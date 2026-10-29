@@ -52,6 +52,34 @@ available and are used for prediction.
 Wrapping changes only the ordering key; ordered views preserve the original
 parameter values rather than wrapping every angle-valued draw.
 
+### Random effects and boundary crossings
+
+For a population intercept $\alpha_k$, slopes $\beta_k$, and an angular random
+effect $u_{ik}$, the predictor is
+$\eta_{ik}=\alpha_k+x_i^\mathsf{T}\beta_k+u_{ik}$. The inverse link is applied
+after adding all these contributions. A circular wrapping link therefore
+produces $\mu_{ik}=\operatorname{wrap}(\eta_{ik})$, not a sum of independently
+wrapped coefficients. With the default identity link, the von Mises density
+still interprets this predictor periodically.
+
+When `order_by="Intercept"`, every posterior draw uses the single permutation
+$p=\operatorname{argsort}(\operatorname{wrap}(\alpha))$. The ordered direction,
+random effect, concentration, and weight are then
+$\mu_{i,p_k}$, $u_{i,p_k}$, $\kappa_{i,p_k}$, and $w_{i,p_k}$. Component-specific
+random-effect hyperparameters and weight/concentration effects follow the same
+permutation. Random effects are not sorted or recentered independently, and
+the permutation is not recomputed for each animal.
+
+An animal's random effect can carry a direction across the cut. For example,
+population directions `[3.1, -1.0]` have permutation `[1, 0]`. Offsets `[0.1, 0]`
+produce wrapped individual directions approximately `[-3.083, -1.0]`; under
+the population ordering these are `[-1.0, -3.083]`. They are deliberately not
+numerically ascending: each direction still carries the correct random effect,
+concentration, and weight. Sorting each animal separately would define a
+different reporting convention and could assign different component identities
+across animals. A crossing of the population intercept itself can still change
+the common ordering, as discussed below.
+
 Aliases are supported for component parameters, coefficients, and weights;
 renaming a parameter does not change the likelihood or the common permutation.
 When the ordering coefficient itself has an alias, use that alias in
