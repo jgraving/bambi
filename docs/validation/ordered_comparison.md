@@ -12,6 +12,12 @@
   divergences, and assess physical labels separately. The sampling benefit is
   from the parametrization; argsort keeps associated parameters together.
 
+![Panel A: a separate six-fit study finds that sorted ranks can change physical identity near the boundary. Panel B: for near-boundary K = 2, 3, and 4 fits, unconstrained circular sampling gives sorted R-hat of 1.007, 1.006, and 1.004, versus 1.743, 1.737, and 1.738 with bounded ordering.](mixture_ordering_overview.svg)
+
+*Panel B: check chain mixing even when there are no divergences. Low sorted
+R-hat does not establish fixed physical labels; panel A shows that distinction
+in the [separate identity study](mixture_ordering.md).*
+
 ## Results
 
 | K | Scenario | Method | Largest sorted R-hat | Minimum truth-matched bulk ESS | Posterior NUTS steps | Fit time including compilation (s) |
@@ -95,3 +101,11 @@ python docs/notebooks/compare_mixture_ordering.py --output results
 The script writes JSON only. After rerunning, review the new results and manually
 update this report's summary and table. Archived inputs and outputs are in
 [mixture_ordering_comparison.json](mixture_ordering_comparison.json).
+
+Refresh the figure from saved JSON without fitting:
+
+```bash
+python docs/notebooks/plot_mixture_ordering.py
+```
+
+Use `--data-dir results` for a new run containing both experiments' JSON files.

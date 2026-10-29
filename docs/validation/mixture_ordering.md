@@ -12,6 +12,12 @@
   random effects. Treat the output as rank-labelled components; check physical
   identity separately when posterior directions cross the boundary.
 
+![Panel A: near-boundary rank/identity mismatches are 1.10%, 12.50%, and 23.15% for K = 2, 3, and 4; all away-from-boundary rates are zero. Panel B: in a separate comparison, near-boundary sorted R-hat is near 1 for unconstrained circular sampling and about 1.74 for bounded ordering.](mixture_ordering_overview.svg)
+
+*Panel A: keep every component's parameters together when ranks change. These
+case-specific percentages do not establish a general increase with K. Panel B
+summarizes the [separate sampling comparison](ordered_comparison.md).*
+
 ## Results
 
 | Components | Scenario | Draws with a rank/identity mismatch | Angular RMSE by sorted rank (rad) | Angular RMSE after truth matching (rad) | Largest sorted R-hat |
@@ -75,6 +81,14 @@ python docs/notebooks/mixture_ordering_validation.py --output results
 
 The script writes JSON only. After rerunning, review the new results and manually
 update this report's summary and table.
+
+Refresh the figure from saved JSON without fitting:
+
+```bash
+python docs/notebooks/plot_mixture_ordering.py
+```
+
+Use `--data-dir results` for a new run containing both experiments' JSON files.
 
 This run used Python 3.12.14, PyMC 6.3.2, PyTensor 3.3.4, NumPy 2.5.4,
 SciPy 1.17.1, and ArviZ Stats 1.3.3. Seeds and complete numerical results are in
