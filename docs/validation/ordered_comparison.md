@@ -1,13 +1,43 @@
-# Argsort reporting versus a bounded ordering constraint
+# Does an ordering constraint make boundary sampling harder?
 
-In this controlled comparison, unconstrained circular sampling followed by a
-common argsort permutation explored the near-boundary posterior much better
-than an ordering constraint. The benefit comes from the unconstrained circular
-parametrization. Argsort itself leaves the density unchanged and serves only
-to align reported parameters. Neither strategy guarantees stable physical
-labels at the branch cut.
+- **Tested:** Unconstrained circular sampling with argsort reporting versus a
+  bounded ordering constraint, using matched data and exchangeable priors.
+- **Why:** A component crossing ±π changes numerical rank. Check whether an
+  ordering constraint makes it harder for chains to explore both sides.
+- **Result:** Away from the boundary, both methods had acceptable diagnostics.
+  Near it, unconstrained fits had sorted R-hat below 1.008 and truth-matched
+  bulk ESS above 2,200; bounded ordering gave R-hat around 1.74 and ESS around six.
+- **Use:** These examples support unconstrained circular sampling with a common
+  permutation for reporting near the boundary. Check mixing even with zero
+  divergences, and assess physical labels separately. The sampling benefit is
+  from the parametrization; argsort keeps associated parameters together.
 
-## Comparable models
+## Results
+
+| K | Scenario | Method | Largest sorted R-hat | Minimum truth-matched bulk ESS | Posterior NUTS steps | Fit time including compilation (s) |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| 2 | Away from cut | argsort | 1.002 | 2272 | 11,120 | 30.5 |
+| 2 | Away from cut | ordered | 1.006 | 1087 | 22,284 | 21.9 |
+| 2 | Near cut | argsort | 1.007 | 2206 | 10,966 | 9.3 |
+| 2 | Near cut | ordered | 1.743 | 6 | 314,582 | 79.0 |
+| 3 | Near cut | argsort | 1.006 | 2612 | 13,514 | 15.9 |
+| 3 | Near cut | ordered | 1.737 | 6 | 412,212 | 125.6 |
+| 4 | Near cut | argsort | 1.004 | 2406 | 14,752 | 13.8 |
+| 4 | Near cut | ordered | 1.738 | 6 | 466,536 | 173.3 |
+
+All eight runs had zero divergences. Near-cut diagnostics are consistent with
+ordered chains remaining in distinct boundary representations. Roughly half
+their samples occupied each representation, reflecting balanced initialization;
+these are unreliable posterior probabilities because the chains did not converge.
+Unconstrained runs explored the much smaller cross-cut mass. The resulting
+rank changes are expected when a physical component crosses the boundary.
+
+Truth matching uses simulated generating directions as an oracle and is
+unavailable for real observations. Sorted R-hat assesses rank-defined
+parameters and does not guarantee stable physical identities. The
+[initial simulations](mixture_ordering.md) measure this distinction directly.
+
+## How it was tested
 
 Both methods use the same data and exchangeable priors as the
 [initial simulations](mixture_ordering.md). The constrained model replaces
@@ -41,8 +71,6 @@ pushforward up to the constant K! normalizer. Concentrations and weights must
 be permuted together with the means for this equivalence. This argument does
 not apply unchanged to non-exchangeable component priors.
 
-## Design and results
-
 Each fit used four chains, 750 tuning iterations, 500 retained draws per chain,
 and 600 observations. For the near-cut cases, two chains started with the
 boundary direction just below pi and two just above -pi. Ordered chains were
@@ -50,45 +78,20 @@ initialized by sorting the directions and the associated parameters together.
 This deliberately tests both circular representations instead of allowing all
 chains to remain in the same representation unnoticed.
 
-| K | Scenario | Method | Largest sorted R-hat | Minimum truth-matched bulk ESS | Posterior NUTS steps | Fit time including compilation (s) |
-| --- | --- | --- | ---: | ---: | ---: | ---: |
-| 2 | Away from cut | argsort | 1.002 | 2272 | 11,120 | 30.5 |
-| 2 | Away from cut | ordered | 1.006 | 1087 | 22,284 | 21.9 |
-| 2 | Near cut | argsort | 1.007 | 2206 | 10,966 | 9.3 |
-| 2 | Near cut | ordered | 1.743 | 6 | 314,582 | 79.0 |
-| 3 | Near cut | argsort | 1.006 | 2612 | 13,514 | 15.9 |
-| 3 | Near cut | ordered | 1.737 | 6 | 412,212 | 125.6 |
-| 4 | Near cut | argsort | 1.004 | 2406 | 14,752 | 13.8 |
-| 4 | Near cut | ordered | 1.738 | 6 | 466,536 | 173.3 |
+## What this does not establish
 
-All eight runs had zero divergences. Away from the cut, both parametrizations
-produced acceptable diagnostics in this example. Near the cut, bounded
-ordering produced R-hat around 1.74 and an effective sample size around six,
-consistent with chains remaining in distinct boundary representations.
-Unconstrained circular sampling gave sorted R-hat below 1.008 and truth-matched
-bulk ESS above 2,200. Zero divergences did not imply that the ordered chains
-mixed adequately.
+These well-separated synthetic mixtures do not establish a general performance
+advantage. Data, priors, samplers, tuning, and initialization can change the
+results. Fit times include compilation in one local run; NUTS steps depend less
+on the environment. Hierarchical models need the same permutation applied to
+associated random effects, but their sampling performance was not tested here.
 
-The ordered runs retained roughly half their samples in each boundary
-representation, reflecting the deliberately balanced initialization. Those
-frequencies are not reliable posterior probability estimates because the
-chains did not converge. The unconstrained runs explored the much smaller
-cross-cut mass without fixing physical component identity to numerical rank.
-That exploration creates rank changes; it is not itself an inference failure.
+## Reproduce
 
-The truth-matched diagnostic uses simulated generating directions as an oracle
-and cannot be obtained this way for real observations. Sorted R-hat concerns
-rank-defined parameters and likewise does not guarantee physical identity.
+```bash
+python docs/notebooks/compare_mixture_ordering.py --output results
+```
 
-## Scope
-
-These are specific, well-separated synthetic mixtures, not a general benchmark
-or proof of superiority. More observations, overlapping components, different
-priors, hierarchical effects, samplers, tuning, and initialization can change
-the results. Fit time includes compilation and reflects one local run; NUTS
-step counts provide a less environment-dependent indication of work. The
-comparison should motivate further validation, not a universal performance claim.
-
-Run `python docs/notebooks/compare_mixture_ordering.py --output results` to
-reproduce. Complete inputs and outputs are in
+The script writes JSON only. After rerunning, review the new results and manually
+update this report's summary and table. Archived inputs and outputs are in
 [mixture_ordering_comparison.json](mixture_ordering_comparison.json).

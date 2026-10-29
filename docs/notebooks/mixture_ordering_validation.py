@@ -1,9 +1,17 @@
-"""Test numerical ordering against known component identities in simulations.
+"""Check whether argsort preserves density and physical component labels.
 
-Run with ``python docs/notebooks/mixture_ordering_validation.py --output results``.
-This uses direct PyMC models to isolate the relabelling method from Bambi's API.
-Truth matching is an evaluation oracle available only for simulated data, not
-a proposed inference method. The paired scenarios differ only by a rotation.
+Fit two-, three-, and four-component PyMC mixtures away from and near the
+angular boundary, rotating paired datasets without changing their geometry.
+Apply one permutation to means, concentrations, and weights. Known generating
+directions let us check whether sorted ranks retain physical identities.
+
+Archived results: density was preserved for every K, but ranks changed physical
+identity near the boundary even for K=2. Use argsort to keep parameters aligned;
+it does not guarantee physical labels. Details: docs/validation/mixture_ordering.md.
+
+Run ``python docs/notebooks/mixture_ordering_validation.py --output results``.
+This writes JSON only; review new results and refresh the report manually.
+Truth matching is a simulation-only check, not a method for real data.
 """
 
 import argparse

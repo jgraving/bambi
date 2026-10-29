@@ -1,10 +1,16 @@
-"""Compare argsort reporting with a bounded ordered angular parametrization.
+"""Check whether bounded ordering impedes sampling near the angular boundary.
+
+Compare unconstrained circular sampling with argsort reporting against a bounded
+ordering constraint. Matched data and exchangeable priors isolate the effect of
+parametrization; both target the same ordered posterior when every component
+parameter follows the same permutation (up to the normalizing factor K!).
+
+Archived results: unconstrained fits mixed better near the boundary, although
+all runs had zero divergences. Check chain mixing separately from physical
+labels. Details: docs/validation/ordered_comparison.md.
 
 Run ``python docs/notebooks/compare_mixture_ordering.py --output results``.
-Exchangeable priors make the joint ordered posterior equal to the common
-argsort pushforward up to the normalizing factor K!. Differences in exploration
-therefore reflect the sampling parametrization, not different intended priors.
-This equivalence requires permuting all associated parameters together.
+This writes JSON only; review new results and refresh the report manually.
 """
 
 import argparse
