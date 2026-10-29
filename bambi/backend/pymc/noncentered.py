@@ -27,6 +27,9 @@ class NoncenteredRegistry:
             names to their reconstructed draws. ``value`` and hyperparameters
             are xarray arrays with named dimensions. This inverse is required
             for predictions and log likelihood when ``omit_offsets=True``.
+            It must invert the builder for every omitted auxiliary variable;
+            a nonlinear transform generally needs its own inverse rather than
+            ``location_scale_offsets``.
 
         Returns
         -------
@@ -41,12 +44,20 @@ class NoncenteredRegistry:
         Notes
         -----
         Registration replaces any previous builder for the same callable.
+        Models keep the inverse selected when they were built, so later
+        registrations do not change how their saved draws are reconstructed.
+        Predicting newly observed group levels uses the original centered
+        distribution's ``.dist`` method, not the non-centered builder.
         See ``docs/notebooks/noncentered_dispatch.py`` for an extension example.
         """
         if not callable(distribution):
             raise TypeError("A non-centered builder must be registered for a callable.")
+        if not callable(recover):
+            raise TypeError("A non-centered inverse must be callable.")
 
         def decorator(builder):
+            if not callable(builder):
+                raise TypeError("A non-centered builder must be callable.")
             self.builders[distribution] = (builder, recover)
             return builder
 
@@ -100,8 +111,11 @@ def recover_offsets(posterior, model):
             for name, value in kwargs.items()
         }
         values = recover(label, posterior[label], **parameters)
-        if missing - values.keys():
-            raise ValueError(f"The non-centered inverse for '{label}' did not recover {missing}.")
+        unresolved = missing - values.keys()
+        if unresolved:
+            raise ValueError(
+                f"The non-centered inverse for '{label}' did not recover {unresolved}."
+            )
         recovered.update({name: values[name] for name in missing})
     return recovered
 

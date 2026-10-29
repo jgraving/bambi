@@ -4,10 +4,17 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 import pytensor
+import pytensor.tensor as pt
 import pytest
+import xarray as xr
 
 import bambi as bmb
-from bambi.backend.pymc.noncentered import location_scale_offsets, make_noncentered
+from bambi.backend.pymc.noncentered import (
+    NoncenteredRegistry,
+    location_scale_offsets,
+    make_noncentered,
+    recover_offsets,
+)
 from bambi.backend.pymc.terms.group_specific import build_distribution
 
 
@@ -134,3 +141,103 @@ def test_centered_circular_and_noncentered_normal_effects():
 def test_unsupported_normal_parametrization_is_explicit(build_prior):
     with pytest.raises(NotImplementedError, match="require a sigma hyperprior"):
         build_prior(bmb.Prior("Normal", mu=bmb.Prior("Normal", mu=0, sigma=1), sigma=1))
+
+
+@pytest.mark.parametrize("invalid", [None, 1])
+def test_registry_rejects_invalid_extension_at_registration(invalid):
+    registry = NoncenteredRegistry()
+    with pytest.raises(TypeError, match="registered for a callable"):
+        registry.register(invalid, recover=location_scale_offsets)
+    with pytest.raises(TypeError, match="inverse must be callable"):
+        registry.register(pm.Normal, recover=invalid)
+    with pytest.raises(TypeError, match="builder must be callable"):
+        registry.register(pm.Normal, recover=location_scale_offsets)(invalid)
+    assert not registry.builders
+
+
+@pytest.mark.parametrize("sparse_dot", [False, True])
+def test_nested_aliased_hyperpriors_recover_all_offsets(mock_pymc_sample, monkeypatch, sparse_dot):
+    monkeypatch.setattr(bmb.config, "SPARSE_DOT", sparse_dot)
+    data = pd.DataFrame({"y": [0.1, 0.2, -0.3, 0.4], "g": ["a", "a", "b", "b"]})
+    prior = bmb.Prior(
+        "Normal",
+        mu=bmb.Prior("Normal", mu=2, sigma=bmb.Prior("HalfNormal", sigma=0.5)),
+        sigma=bmb.Prior("HalfNormal", sigma=1),
+    )
+    model = bmb.Model("y ~ 0 + (1|g)", data, priors={"1|g": prior})
+    model.set_alias({"1|g": "effect", "mu": "location", "sigma": "scale"})
+    kept = model.fit(draws=8, chains=2, omit_offsets=False, random_seed=281)
+    offsets = model.backend.model.__bambi_attrs__["offset_names"]
+    assert offsets == {"effect_offset", "effect_location_offset"}
+    dropped = kept.copy(deep=True)
+    dropped["posterior"] = dropped.posterior.to_dataset().drop_vars(offsets)
+    reconstructed = recover_offsets(dropped.posterior.to_dataset(), model.backend.model)
+    for name in offsets:
+        xr.testing.assert_allclose(reconstructed[name].rename(name), kept.posterior[name])
+
+    for frame in (None, data.iloc[[0, 2, 3]]):
+        expected = model.predict(kept, data=frame, kind="response_params", inplace=False)
+        actual = model.predict(dropped, data=frame, kind="response_params", inplace=False)
+        group = "posterior" if frame is None else "predictions"
+        xr.testing.assert_allclose(actual[group]["location"], expected[group]["location"])
+        expected = model.compute_log_likelihood(kept, data=frame, inplace=False)
+        actual = model.compute_log_likelihood(dropped, data=frame, inplace=False)
+        xr.testing.assert_allclose(actual.log_likelihood, expected.log_likelihood)
+
+
+@pytest.fixture
+def lognormal_builder(monkeypatch):
+    monkeypatch.setattr(make_noncentered, "builders", make_noncentered.builders.copy())
+
+    def inverse(label, value, mu, sigma):
+        return {label + "_raw": (np.log(value) - mu) / sigma}
+
+    @make_noncentered.register(pm.LogNormal, recover=inverse)
+    def builder(label, dims, model, mu, sigma):
+        with model:
+            offset = pm.Normal(label + "_raw", mu=0, sigma=1, dims=dims)
+            model.__bambi_attrs__["offset_names"].add(offset.name)
+            return pm.Deterministic(label, pt.exp(mu + sigma * offset), dims=dims)
+
+    return builder
+
+
+@pytest.mark.parametrize("sparse_dot", [False, True])
+def test_nonlinear_external_inverse_and_unseen_groups(
+    lognormal_builder, mock_pymc_sample, monkeypatch, sparse_dot
+):
+    monkeypatch.setattr(bmb.config, "SPARSE_DOT", sparse_dot)
+    data = pd.DataFrame({"y": [0.1, 0.2, -0.3, 0.4], "g": ["a", "a", "b", "b"]})
+    prior = bmb.Prior("LogNormal", mu=0.3, sigma=bmb.Prior("HalfNormal", sigma=0.2))
+    model = bmb.Model("y ~ 0 + (1|g)", data, priors={"1|g": prior})
+    kept = model.fit(draws=12, chains=2, omit_offsets=False, random_seed=281)
+    assert make_noncentered.builders[pm.LogNormal][0] is lognormal_builder
+    omitted = model.fit(draws=4, chains=1, omit_offsets=True, random_seed=912)
+    assert "1|g_raw" not in omitted.posterior
+    dropped = kept.copy(deep=True)
+    dropped["posterior"] = dropped.posterior.to_dataset().drop_vars("1|g_raw")
+
+    # A fitted model retains its own inverse, independent of later registration changes.
+    monkeypatch.delitem(make_noncentered.builders, pm.LogNormal)
+    recovered = recover_offsets(dropped.posterior.to_dataset(), model.backend.model)
+    np.testing.assert_allclose(recovered["1|g_raw"], kept.posterior["1|g_raw"])
+    assert not recover_offsets(kept.posterior.to_dataset(), model.backend.model)
+
+    for frame in (None, pd.DataFrame({"g": ["a", "unseen", "unseen", "b"]})):
+        expected = model.predict(
+            kept, data=frame, kind="response_params", random_seed=182, inplace=False
+        )
+        actual = model.predict(
+            dropped, data=frame, kind="response_params", random_seed=182, inplace=False
+        )
+        group = "posterior" if frame is None else "predictions"
+        xr.testing.assert_allclose(actual[group].mu, expected[group].mu)
+        assert np.all(actual[group].mu.values > 0)
+        if frame is not None:
+            np.testing.assert_allclose(actual.predictions.mu[..., 1], actual.predictions.mu[..., 2])
+            np.testing.assert_allclose(actual.predictions.mu[..., 0], kept.posterior["1|g"][..., 0])
+            np.testing.assert_allclose(actual.predictions.mu[..., 3], kept.posterior["1|g"][..., 1])
+
+    expected = model.compute_log_likelihood(kept, inplace=False)
+    actual = model.compute_log_likelihood(dropped, inplace=False)
+    xr.testing.assert_allclose(actual.log_likelihood, expected.log_likelihood)

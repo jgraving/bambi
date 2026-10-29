@@ -5,6 +5,21 @@ Use a per-prior ``noncentered=False`` override for centered effects, such as
 VonMises angular offsets whose inferred concentration remains in their prior.
 This example does not claim a non-centered von Mises parametrization.
 
+The location and scale are retained exactly: ``effect = mu + sigma * offset``.
+Registering a builder also requires an inverse so Bambi can recover omitted
+offset draws for prediction and log likelihood. For this location-scale
+transform, ``location_scale_offsets`` computes ``(effect - mu) / sigma`` using
+the posterior hyperparameter draws. Nonlinear transformations need their own
+inverse. For example, a LogNormal builder using ``exp(mu + sigma * offset)``
+would recover ``(log(effect) - mu) / sigma`` instead.
+
+The inverse selected when a model is built stays attached to that model, even
+if the registry is later changed. Auxiliary variable names must be registered
+in ``offset_names``; they need not end in ``_offset``. Predictions for new group
+levels draw from the original distribution's ``.dist`` method conditional on
+the fitted hyperparameters, so a custom prior callable must provide that
+method to support unseen groups.
+
 Run with ``python docs/notebooks/noncentered_dispatch.py``.
 """
 
