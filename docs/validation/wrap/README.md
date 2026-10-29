@@ -1,10 +1,21 @@
 # Wrapping, sampling, and directional diagnostics
 
-The `wrap` link gives equivalent directions a common representation. This has a
-concrete diagnostic benefit: chains separated by whole turns can agree about a
-direction while ordinary R-hat on their unwrapped values suggests substantial
-disagreement. The experiments below reproduce this effect. They also find
-essentially identical sampling with `identity` and `wrap` in the tested models.
+- **What we tested:** `identity` versus `wrap` in 24 fits covering regression
+  across multiple turns, intercepts separated by whole turns, a posterior near
+  ±π, and different slopes with matching predictions at observed values.
+- **Why:** To distinguish better sampling from better representation of the
+  same direction, using matched data, priors, initial values, and random seeds.
+- **What happened:** Sampling was essentially identical, with zero divergences
+  and matching NUTS step counts. For directions stored in different periods,
+  wrapping changed R-hat from about 2.84 to 1.00 on the same draws.
+- **What to do:** Use `wrap` for directional predictions in `[-pi, pi)` and
+  comparable traces across periods. Check both sine and cosine near the cut,
+  and assess predictions at predictor values of interest. Keep diagnostics on
+  real-valued coefficients too; wrapping a direction does not resolve distinct
+  coefficient modes or make a slope an angle.
+
+These findings use the original modulo implementation. The later roundoff
+refinement is covered by focused tests, not a repeat of the 24-fit experiment.
 
 ## Experiment design
 
@@ -141,7 +152,9 @@ Install the branch and mpmath, then run from the repository root:
 python docs/notebooks/wrap_validation.py --output docs/validation/wrap
 ```
 
-This regenerates the JSON results and figure. It is a simulation study rather
-than a CI test; no assertion requires a particular stochastic R-hat value.
+This regenerates the JSON results and figure with the installed Bambi version;
+it leaves this report and its summary intact. Review the recorded numbers before
+updating the report after a new run. It is a simulation study rather than a CI
+test; no assertion requires a particular stochastic R-hat value.
 
 Diagnostic definition: [ArviZ Stats R-hat documentation](https://python.arviz.org/projects/stats/en/stable/api/generated/arviz_stats.rhat.html).

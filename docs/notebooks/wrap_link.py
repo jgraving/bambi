@@ -1,17 +1,16 @@
-"""Circular regression with an explicitly wrapped mean direction.
+"""Fit circular regression with mean directions reported in [-pi, pi).
 
-Run from the repository with ``python docs/notebooks/wrap_link.py``.
-Angles and coefficients are in radians. The wrap link maps the
-predictor to [-pi, pi); identity remains the default for vonmises.
+Use the wrap link to give equivalent directions a common representation in
+predictions and traces. The von Mises density is already periodic, so wrapping
+preserves the likelihood and posterior with identical coefficient priors;
+the paired experiments found no measurable sampling benefit in the tested models.
 
-Wrapping puts equivalent directions in a common interval, which makes
-directional traces and diagnostics comparable when chains differ by full
-turns. The von Mises density is already periodic in its mean direction;
-with identical coefficient priors the likelihood and posterior are unchanged.
-Near the interval boundary, use circular summaries and inspect sin(mu) and
-cos(mu), or angular deviations about a common reference direction. Regression
-coefficients remain on their original scale. See docs/validation/wrap/README.md
-for paired sampling experiments and the distinction between directions and slopes.
+Inspect both sin(mu) and cos(mu) near the interval boundary and use circular
+summaries. Regression coefficients stay on their original scale; identity
+remains the default link. Angles are in radians.
+
+Run with ``python docs/notebooks/wrap_link.py``. See
+docs/validation/wrap/README.md for the experiments and practical guidance.
 """
 
 import numpy as np

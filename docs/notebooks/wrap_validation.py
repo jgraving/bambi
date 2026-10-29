@@ -1,12 +1,19 @@
-"""Compare wrapping, sampling, and diagnostics in circular regression.
+"""Test whether wrapping changes sampling or how directions are diagnosed.
+
+Compare identity and wrap links in four scenarios with three data seeds
+(24 fits by default), matching data, priors, starts, and sampling seeds.
+The original modulo implementation gave essentially identical sampling;
+wrapping made equivalent directions easier to compare across whole-turn offsets.
+Use wrap for directional predictions, while retaining coefficient diagnostics
+and circular summaries near the cut. See docs/validation/wrap/README.md for
+the results and the scope of the later roundoff refinement.
 
 Run from the PR branch with::
 
     python docs/notebooks/wrap_validation.py --output docs/validation/wrap
 
-Each identity/wrap pair uses identical data, explicit priors, starting points,
-and random seeds. These deliberately small models isolate representation from
-sampling. Deliberately separated periodic modes are not identified by wrapping.
+This regenerates JSON and a figure using the installed Bambi version. It keeps
+the report and its summary intact; review its numbers after a new run.
 The numerical stress test additionally requires mpmath (``pip install mpmath``).
 """
 
